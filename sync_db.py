@@ -16,7 +16,7 @@ session.add(EventType('live', u'Концерт'))
 it = ImageType(Entity.EVENT, u'Афиша события');
 it.max_thumb_width = 126;
 it.max_thumb_height = 126;
-it.transform_type = ImageType.TRANSFORM_STD;
+it.transform_type = ImageTransform.STD;
 it.base_dir = 'event';
 session.add(it)
 

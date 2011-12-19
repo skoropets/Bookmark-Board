@@ -8,6 +8,7 @@ Base = declarative_base()
 metadata = Base.metadata
 
 class EventSourceType:
+    EMPTY = 0
     STD = 1
     LASTFM = 2
     VK = 3

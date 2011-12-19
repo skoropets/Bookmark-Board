@@ -1,9 +1,11 @@
 import unittest
 
 from file_image import FileProcess, ImageInfo, ImageTransform
-from model import Image, ImageType
+from model import Image, ImageType, EventSourceType, EventType, Event
 from conn import engine, session
 from tempfile import mkdtemp, mkstemp 
+from datetime import datetime, date
+from sqlalchemy.orm import aliased
 import os
 import shutil
 
@@ -109,8 +111,50 @@ class TestFileImage(unittest.TestCase):
         session.commit()
 
 class TestEvent(unittest.TestCase):
+    def setUp(self):
+        session.query(EventType).filter(EventType.name == 'first')
+        session.commit()
+        self.et = EventType('first', 'First')
+        session.add(self.et)
+        session.commit()
+        
+    def tearDown(self):
+        session.delete(self.et)
+        session.commit()
+
     def testFirst(self):
-        pass
+        et_alias = aliased(EventType)
+        first_query = session.query(Event).join(et_alias, Event.event_type).filter(et_alias.name == 'first').group_by(Event.event_id)
+
+        session.query(Event).delete()
+        session.commit()
+        session.flush()
+
+        e = Event(self.et)
+        e.title = 'First event'
+        e.time_start = datetime(1970, 1, 1, 0, 0)
+        e.time_end = datetime(1970, 1, 1, 3, 0)
+        e.description = 'First description'
+        e.source_type = EventSourceType.EMPTY 
+        session.add(e)
+        session.commit()
+
+        all_first = first_query.all()
+        self.assertEquals(len(all_first), 1)
+        e = all_first[0]
+        self.assertEquals(e.title, 'First event');
+        self.assertEquals(e.time_start, datetime(1970, 1, 1, 0, 0))
+        self.assertEquals(e.time_end, datetime(1970, 1, 1, 3, 0))
+        self.assertEquals(e.description, 'First description')
+        self.assertEquals(e.source_type, EventSourceType.EMPTY)
+        self.assertEquals(e.event_type.name, 'first')
+
+        all_date_empty = session.query(Event).filter(Event.time_start == date(1971, 1, 1)).all() 
+        self.assertEquals(len(all_date_empty), 0)
+        all_date_fine = session.query(Event).filter(Event.time_start == date(1970, 1, 1)).all() 
+        self.assertEquals(len(all_date_fine), 1)
+        session.delete(e)
+        session.commit()
 
 if __name__ == '__main__':
     unittest.main()
