@@ -1,0 +1,62 @@
+Events
+    event_id
+    place_id
+    main_image_id
+    time_start
+    time_end
+    description
+    event_type_id 
+    source_type [std, lastfm, vkontakte]
+    source_url
+
+EventTypes
+    event_type_id
+    name
+    title_name
+
+EventParsons
+    event_id
+    parson_id
+    order
+
+Persons
+    person_id
+    name
+    main_image_id
+    source_url
+
+Place
+    place_id
+    name
+    address
+    phone
+    site_link_id
+
+Images
+    image_id
+    image_path
+    image_width
+    image_height
+    thumb_path
+    thumb_width
+    thumb_height
+    image_type
+    content_type [jpg, gif, png]
+
+ImageTypes
+    image_type
+    target_type [Event]
+    name
+    thumb_width
+    thumb_height
+    transform_type
+
+EventLinks
+    event_id
+    link_id
+    order
+
+Links
+    link_id
+    name
+    url
