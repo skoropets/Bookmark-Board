@@ -16,6 +16,12 @@ class EventSourceType:
 class Entity:
     EVENT = 1
 
+event_persons = Table('event_persons', metadata,
+    Column('event_id', Integer, ForeignKey('events.event_id')),
+    Column('person_id', Integer, ForeignKey('persons.person_id')),
+    Column('order', Integer)
+)
+
 class Event(Base):
     __tablename__ = 'events'
 
@@ -32,6 +38,7 @@ class Event(Base):
     last_status = Column(Integer)
 
     place = relationship("Place", backref=backref('events'))
+    persons = relationship("Person", secondary=event_persons)
     main_image = relationship("Image")
     event_type = relationship("EventType")
     event_status_list = relationship("EventStatus", backref=backref('event'))
@@ -41,6 +48,10 @@ class Event(Base):
         if title is None:
             title = ''
         self.title = title
+
+    def addEventStatus(self, event_status):
+        self.last_status = event_status.status
+        self.event_status_list.add(event_status)
 
     def __repr__(self):
         return "Event('%s')" % (self.title)
@@ -146,11 +157,6 @@ class ImageType(Base):
                 width = self.max_thumb_width,\
                 height = self.max_thumb_height)
 
-event_persons = Table('event_persons', metadata,
-    Column('event_id', Integer, ForeignKey('events.event_id')),
-    Column('person_id', Integer, ForeignKey('persons.person_id')),
-    Column('order', Integer)
-)
 
 class Person(Base):
     MUSICIAN = 1
@@ -167,6 +173,7 @@ class Person(Base):
 
     def __init__(self, name, person_type):
         self.name = name
+        self.person_type = person_type
 
     def __repr__(self):
         return "Person('%s', '%s')" % (self.name, self.person_type)

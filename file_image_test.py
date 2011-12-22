@@ -1,7 +1,7 @@
 import unittest
 
 from file_image import FileProcess, ImageInfo, ImageTransform
-from model import Image, ImageType, EventSourceType, EventType, Event
+from model import Image, ImageType, EventSourceType, EventType, Event, Place, Person
 from conn import engine, session
 from tempfile import mkdtemp, mkstemp 
 from datetime import datetime, date
@@ -122,10 +122,16 @@ class TestEvent(unittest.TestCase):
         session.delete(self.et)
         session.commit()
 
-    def testFirst(self):
+    @property
+    def first_query(self):
         et_alias = aliased(EventType)
-        first_query = session.query(Event).join(et_alias, Event.event_type).filter(et_alias.name == 'first').group_by(Event.event_id)
+        return session.query(Event).\
+                join(et_alias, Event.event_type).\
+                filter(et_alias.name == 'first').\
+                    group_by(Event.event_id)
 
+    def testFirst(self):
+        first_query = self.first_query
         session.query(Event).delete()
         session.commit()
         session.flush()
@@ -155,6 +161,42 @@ class TestEvent(unittest.TestCase):
         self.assertEquals(len(all_date_fine), 1)
         session.delete(e)
         session.commit()
+
+    def testSecond(self):
+        session.query(Event).delete()
+        session.query(Person).delete()
+        session.query(Place).delete()
+        session.commit()
+
+        place = Place('First place')
+        place.address = 'Address'
+        place.phone = 'Phone'
+        place.site_url = 'http://localhost';
+        persons_list = [] 
+        persons_list.append(Person('First', Person.MUSICIAN))
+        persons_list.append(Person('Second', Person.MUSICIAN))
+        e = Event(self.et)
+        e.place = place
+        for p in persons_list:
+            e.persons.append(p)
+        session.add(e)
+        session.commit()
+        session.flush()
+
+        first_query = self.first_query
+        all_first = first_query.all()
+        self.assertEquals(len(all_first), 1)
+        e = all_first[0]
+        place = e.place
+        self.assertEquals(place.address, 'Address')
+        self.assertEquals(place.phone, 'Phone')
+        self.assertEquals(place.site_url, 'http://localhost')
+        person_names = []
+        for p in e.persons:
+            person_names.append(p.name)
+        self.assert_('First' in person_names)
+        self.assert_('Second' in person_names)
+        
 
 if __name__ == '__main__':
     unittest.main()
