@@ -1,5 +1,5 @@
 from sqlalchemy import *
-from sqlalchemy.orm import relationship, backref
+from sqlalchemy.orm import relationship, backref, collections
 from sqlalchemy.ext.declarative import declarative_base
 
 from file_image import FileProcess,ImageTransform
@@ -15,6 +15,18 @@ class EventSourceType:
 
 class Entity:
     EVENT = 1
+
+event_persons = Table('event_persons', metadata,
+    Column('event_id', Integer, ForeignKey('events.event_id')),
+    Column('person_id', Integer, ForeignKey('persons.person_id')),
+    Column('order', Integer)
+)
+
+event_links = Table('event_links', metadata,
+    Column('event_id', Integer, ForeignKey('events.event_id')),
+    Column('link_id', Integer, ForeignKey('links.link_id')),
+    Column('order', Integer)
+)
 
 class Event(Base):
     __tablename__ = 'events'
@@ -35,6 +47,8 @@ class Event(Base):
     main_image = relationship("Image")
     event_type = relationship("EventType")
     event_status_list = relationship("EventStatus", backref=backref('event'))
+    persons = relationship('Person', secondary=event_persons, backref=backref('events'))
+    links = relationship('Link', secondary=event_links)
 
     def __init__(self, event_type, title = None):
         self.event_type = event_type
@@ -146,11 +160,6 @@ class ImageType(Base):
                 width = self.max_thumb_width,\
                 height = self.max_thumb_height)
 
-event_persons = Table('event_persons', metadata,
-    Column('event_id', Integer, ForeignKey('events.event_id')),
-    Column('person_id', Integer, ForeignKey('persons.person_id')),
-    Column('order', Integer)
-)
 
 class Person(Base):
     MUSICIAN = 1
@@ -184,3 +193,36 @@ class EventType(Base):
 
     def __repr__(self):
         return "EventType('%s')" % (self.name)
+
+
+class Link(Base):
+    __tablename__ = 'links'
+
+    link_id = Column(Integer, Sequence('link_id_seq'), primary_key=True)
+    title = Column(String(255))
+    url = Column(String(255))
+    domain_id = Column(String(255), ForeignKey('link_domains.domain_id'))
+
+    link_domain = relationship('LinkDomain')
+
+    def __init__(self, url):
+        self.url = url
+
+    def __repr__(self):
+        return "Link('%s')" % (self.url)
+
+class LinkDomain(Base):
+    __tablename__ = 'link_domains'
+
+    domain_id = Column(Integer, Sequence('domain_id_seq'), primary_key=True)
+    domain = Column(String(255))
+    def_link_title = Column(String(255))
+    domain_image_id = Column(String(255), ForeignKey('images.image_id')) 
+
+    domain_image = relationship('Image')
+
+    def __init__(self, domain):
+        self.domain = domain
+
+    def __repr__(self):
+        return "LinkDomain('%s')" % (self.domain)

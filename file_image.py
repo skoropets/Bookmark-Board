@@ -81,11 +81,13 @@ class ImageTransform:
         }
         if transform_type in types:
             it = types[transform_type]
-            it.width = width
-            it.height = height
-            return it()
+            return it(width, height)
         else:
             raise FileImageException('Cant find this type')
+
+    def __init__(self, width = None, height = None):
+        self.width = width
+        self.height = height
 
     def process(self, source_file, target_file):
         raise FileImageException('Cant process empty for this transfer type')
