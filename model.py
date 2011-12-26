@@ -1,10 +1,23 @@
 from sqlalchemy import *
+from sqlalchemy import event as alchemy_event
 from sqlalchemy.orm import relationship, backref, collections
 from sqlalchemy.ext.declarative import declarative_base
 
-from file_image import FileProcess,ImageTransform
+from file_image import FileProcess,ImageTransform, mkImageWithFrame
+import os
 
-Base = declarative_base()
+class MyBase(object):
+    pass
+
+def file_column(column):
+    def set_event_listner(target, value, oldvalue, initiator):
+        if oldvalue:
+            full_path = FileProcess.fullPath(oldvalue)
+            if (os.path.isfile(full_path)):
+                os.unlink(full_path)
+    alchemy_event.listen(column, 'set', set_event_listner)
+
+Base = declarative_base(cls=MyBase)
 metadata = Base.metadata
 
 class EventSourceType:
@@ -59,8 +72,15 @@ class Event(Base):
     def __repr__(self):
         return "Event('%s')" % (self.title)
 
+def event_status_append_listener(target, value, initiator):
+    target.last_status = value.status
+
+alchemy_event.listen(Event.event_status_list, 'append', event_status_append_listener)
+
 class EventStatus(Base):
     EMPTY = 0
+    WANT = 1
+    MAYBE = 2
 
     __tablename__ = 'event_status'
 
@@ -70,8 +90,7 @@ class EventStatus(Base):
     status = Column(Integer) 
     description = Column(Text)
 
-    def __init__(self, event, status):
-        self.event = event    
+    def __init__(self, status):
         self.status = status
 
     def __repr__(self):
@@ -133,6 +152,9 @@ class Image(Base):
         self.content_type = image_info.content_type
         return True
 
+file_column(Image.image_path)
+file_column(Image.thumb_path)
+
 class ImageType(Base):
     TARGET_NONE = 0
     TARGET_EVENT = 1
@@ -144,6 +166,7 @@ class ImageType(Base):
     title_name = Column(String(255))
     max_thumb_width = Column(Integer)
     max_thumb_height = Column(Integer)
+    def_thumb_path = Column(String(255))
     base_dir = Column(String(255))
     transform_type = Column(Integer)
 
@@ -154,12 +177,24 @@ class ImageType(Base):
     def __repr__(self):
         return "ImageType('%s')" % (self.title_name)
 
+    def mkDefThumb(self):
+        info = mkImageWithFrame(self.max_thumb_width, self.max_thumb_height)
+        if not info.is_image():
+            return False
+        fp = FileProcess()
+        image_info = fp.copyImage(info.file_path, short_dir = self.base_dir)
+        if not image_info or not image_info.is_image():
+            return False
+        self.def_thumb_path = image_info.short_path
+        return True
+
     @property
     def thumb_transform_image(self):
         return ImageTransform.create(self.transform_type,\
                 width = self.max_thumb_width,\
                 height = self.max_thumb_height)
 
+file_column(ImageType.def_thumb_path)
 
 class Person(Base):
     MUSICIAN = 1

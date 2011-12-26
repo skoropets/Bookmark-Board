@@ -1,7 +1,29 @@
-from os import path,mkdir
+from os import path,mkdir,fdopen
 from shutil import copyfile
 from random import randint
+from tempfile import mkdtemp, mkstemp 
 import Image
+import ImageDraw
+
+def mkTempFile(content = None):
+    (fd, source_file) = mkstemp()
+    if not content is None:
+        fh = fdopen(fd, 'w')
+        fh.write(content)
+        fh.close()
+    return source_file
+
+def mkImageWithFrame(x, y, width=1, frame_color=None, bg_color=None):
+    if frame_color is None:
+        frame_color = (0, 0, 0)
+    if bg_color is None:
+        bg_color = (0xff, 0xff, 0xff)
+    im = Image.new("RGB", (x, y), bg_color)
+    d = ImageDraw.Draw(im)
+    d.rectangle([(0, 0), (x, y)], fill=frame_color)
+    out_file = mkTempFile()
+    im.save(out_file, 'JPEG')
+    return ImageInfo(out_file)
 
 class FileImageException(Exception):
     pass
@@ -141,9 +163,9 @@ class ImageInfo:
         try:
             im = Image.open(self.file_path)
             self.content_type = self.pil_formats[im.format]
-        except IOError:
-            return
-        except NameError:
+        except Exception as e:
+            #print str(e) + "\nfor file " + self.file_path
+            self.content_type = None
             return
         (self.width, self.height) = im.size
 
@@ -154,8 +176,7 @@ class ImageInfo:
         except NameError:
             raise FileImageException('Cant find file extension for this content type')
         except KeyError as e:
-            print [self.file_exts, self.content_type, self.__bool__()]
-            raise e
+            raise FileImageException("Cant find content_type \'%s\'" % self.content_type)
 
     def __bool__(self):
         return self.is_image()

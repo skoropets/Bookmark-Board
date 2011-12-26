@@ -1,7 +1,7 @@
 import unittest
 
-from file_image import FileProcess, ImageInfo, ImageTransform
-from model import Image, ImageType, EventSourceType, EventType, Event
+from file_image import FileProcess, ImageInfo, ImageTransform, mkTempFile
+from model import Image, ImageType, EventSourceType, EventType, Event, EventStatus
 from conn import engine, session
 from tempfile import mkdtemp, mkstemp 
 from datetime import datetime, date
@@ -9,18 +9,14 @@ from sqlalchemy.orm import aliased
 import os
 import shutil
 
-def mkTempFile(content):
-    (fd, source_file) = mkstemp()
-    fh = os.fdopen(fd, 'w')
-    fh.write(content)
-    fh.close()
-    return source_file
+session.echo = False
 
 def getFileContent(file_name):
-    fh = open(file_name, 'r')
-    s = fh.read()
-    fh.close()
-    return s
+    content = ''
+    with open(file_name, 'r') as f:
+        for c in f:
+            content += c
+    return content 
 
 def fileInTestDir(file_path):
     try:
@@ -83,7 +79,7 @@ class TestFileImage(unittest.TestCase):
         it = ImageType(ImageType.TARGET_NONE)
         it.max_thumb_height = 50
         it.max_thumb_width = 150
-        it.base_dir = 'b'
+        it.base_dir = 'b/a'
         it.transform_type = ImageTransform.STD
         session.add(it)
         img = Image(it)
@@ -91,14 +87,17 @@ class TestFileImage(unittest.TestCase):
         self.assert_(ret)
         session.add(img)
         session.commit()
+        old_thumb_path = img.thumb_path
+        old_image_path = img.image_path
         self.assert_(os.path.isfile(FileProcess.fullPath(img.thumb_path)))
         self.assert_(os.path.isfile(FileProcess.fullPath(img.image_path)))
         split_p = img.thumb_path.split(os.path.sep)
-        print split_p
         self.assert_('b' in split_p)
+        self.assert_('a' in split_p)
         self.assert_('img' in split_p)
         split_p = img.image_path.split(os.path.sep)
         self.assert_('b' in split_p)
+        self.assert_('a' in split_p)
         self.assert_('img' in split_p)
         self.assert_(img.thumb_width <= 150)
         self.assert_(img.thumb_height <= 50) 
@@ -106,9 +105,34 @@ class TestFileImage(unittest.TestCase):
         self.assertEquals(img.image_width, 418)
         self.assertEquals(img.image_height, 604) 
 
+        ret = img.uploadFromFile(fileInTestDir('img/test.jpg'))
+        self.assert_(ret)
+        self.assert_(not os.path.isfile(FileProcess.fullPath(old_thumb_path)))
+        self.assert_(not os.path.isfile(FileProcess.fullPath(old_image_path)))
+
         session.delete(img)
         session.delete(it)
         session.commit()
+
+    def testDefThumb(self):
+        it = ImageType(ImageType.TARGET_NONE)
+        it.max_thumb_height = 345
+        it.max_thumb_width = 234
+        session.add(it)
+        session.commit()
+        ret = it.mkDefThumb()
+        self.assertEquals(ret, True)
+        self.assert_(it.def_thumb_path)
+        fp = FileProcess()
+        self.assertNotEquals(it.def_thumb_path[0], '/')
+        info = ImageInfo(fp.fullPath(it.def_thumb_path))
+        self.assertEquals(info.is_image(), True)
+        self.assertEquals(info.height, 345)
+        self.assertEquals(info.width, 234)
+
+        session.delete(it)
+        session.commit()
+
 
 class TestEvent(unittest.TestCase):
     def setUp(self):
@@ -155,6 +179,21 @@ class TestEvent(unittest.TestCase):
         self.assertEquals(len(all_date_fine), 1)
         session.delete(e)
         session.commit()
+
+    def testSecond(self):
+        e = Event(self.et)
+        e.title = 'First event'
+        e.source_type = EventSourceType.EMPTY 
+        session.add(e)
+        session.commit()
+
+        e.event_status_list.append(EventStatus(EventStatus.EMPTY))
+        e.event_status_list.append(EventStatus(EventStatus.MAYBE))
+        self.assertEquals(e.last_status, EventStatus.MAYBE)
+
+        session.delete(e) 
+        session.commit()
+
 
 if __name__ == '__main__':
     unittest.main()
