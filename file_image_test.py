@@ -1,7 +1,7 @@
 import unittest
 
 from file_image import FileProcess, ImageInfo, ImageTransform
-from model import Image, ImageType, EventSourceType, EventType, Event, Place, Person
+from model import Image, ImageType, EventSourceType, EventType, Event, Place, Person, EventStatus
 from conn import engine, session
 from tempfile import mkdtemp, mkstemp 
 from datetime import datetime, date
@@ -122,13 +122,20 @@ class TestEvent(unittest.TestCase):
         session.delete(self.et)
         session.commit()
 
-    @property
-    def first_query(self):
+    def __byEventTypeQuery(self, event_type_name):
         et_alias = aliased(EventType)
         return session.query(Event).\
                 join(et_alias, Event.event_type).\
-                filter(et_alias.name == 'first').\
+                filter(et_alias.name == event_type_name).\
                     group_by(Event.event_id)
+
+    @property
+    def first_query(self):
+        return self.__byEventTypeQuery('first')
+
+    @property
+    def live_query(self):
+        return self.__byEventTypeQuery('live')
 
     def testFirst(self):
         first_query = self.first_query
@@ -196,7 +203,19 @@ class TestEvent(unittest.TestCase):
             person_names.append(p.name)
         self.assert_('First' in person_names)
         self.assert_('Second' in person_names)
-        
+       
+        e = Event(EventType.findByName(session, 'live'), 'Live event')
+        e.addEventStatus(EventStatus(EventStatus.LIVE_WANT))
+        e.addEventStatus(EventStatus(EventStatus.LIVE_BE_HERE))
+        session.add(e)
+        session.commit()
+        session.flush()
+
+        events = self.live_query.all()
+        self.assertEquals(len(events), 1);
+        e = events[0]
+        self.assertEquals(len(e.event_status_list), 2)
+        self.assertEquals(e.last_status, EventStatus.LIVE_BE_HERE)
 
 if __name__ == '__main__':
     unittest.main()

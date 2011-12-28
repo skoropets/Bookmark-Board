@@ -152,7 +152,6 @@ class ImageInfo:
         except NameError:
             raise FileImageException('Cant find file extension for this content type')
         except KeyError as e:
-            print [self.file_exts, self.content_type, self.__bool__()]
             raise e
 
     def __bool__(self):

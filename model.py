@@ -7,6 +7,9 @@ from file_image import FileProcess,ImageTransform
 Base = declarative_base()
 metadata = Base.metadata
 
+class ModelExteption(Exception):
+    pass
+
 class EventSourceType:
     EMPTY = 0
     STD = 1
@@ -51,13 +54,15 @@ class Event(Base):
 
     def addEventStatus(self, event_status):
         self.last_status = event_status.status
-        self.event_status_list.add(event_status)
+        self.event_status_list.append(event_status)
 
     def __repr__(self):
         return "Event('%s')" % (self.title)
 
 class EventStatus(Base):
     EMPTY = 0
+    LIVE_WANT = 1
+    LIVE_BE_HERE = 2
 
     __tablename__ = 'event_status'
 
@@ -67,8 +72,7 @@ class EventStatus(Base):
     status = Column(Integer) 
     description = Column(Text)
 
-    def __init__(self, event, status):
-        self.event = event    
+    def __init__(self, status):
         self.status = status
 
     def __repr__(self):
@@ -184,6 +188,14 @@ class EventType(Base):
     event_type_id = Column(Integer, Sequence('event_type_id_seq'), primary_key=True) 
     name = Column(String(255))
     title = Column(String(255))
+
+    @classmethod
+    def findByName(cls, session, name):
+        ret = session.query(cls).filter(cls.name == name).one()
+        if ret:
+            return ret
+        else:
+            raise ModelExteption("Cant find this event type %s" % name)
 
     def __init__(self, name, title):
         self.name = name
