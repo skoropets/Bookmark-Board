@@ -231,12 +231,16 @@ class EventType(Base):
 
 
 class Link(Base):
+    TYPE_STD = 0
+    TYPE_MAIN = 1
+
     __tablename__ = 'links'
 
     link_id = Column(Integer, Sequence('link_id_seq'), primary_key=True)
     title = Column(String(255))
     url = Column(String(255))
     domain_id = Column(String(255), ForeignKey('link_domains.domain_id'))
+    link_type = Column(Integer)
 
     link_domain = relationship('LinkDomain')
 
